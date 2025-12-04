@@ -25,3 +25,8 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest

@@ -8,13 +8,11 @@ spring:
   data:
     mongodb:
       uri: mongodb://${APPROVAL_REQUEST_MONGO_USERNAME}:${APPROVAL_REQUEST_MONGO_PASSWORD}@${APPROVAL_REQUEST_MONGO_HOST}:${APPROVAL_REQUEST_MONGO_PORT}/${APPROVAL_REQUEST_MONGO_DB_NAME}?authSource=${APPROVAL_REQUEST_MONGO_AUTH_DB}
-  grpc:
-    client:
-      channels:
-        approval-processing:
-          address: ${APPROVAL_PROCESSING_GRPC_ADDRESS}
-    server:
-      port: 9091
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
 
 security:
   jwt:

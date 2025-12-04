@@ -46,14 +46,17 @@ import erp.approvalrequest.support.TestJwtFactory;
 import erp.approvalrequest.repository.ApprovalRepository;
 import erp.common.exception.ErrorResponse;
 import erp.common.security.Role;
+import erp.common.messaging.ApprovalMessagingConstants;
 import erp.employee.EmployeeServiceApplication;
 import erp.employee.dto.EmployeeRequest;
 import erp.employee.dto.EmployeeResponse;
 import erp.notification.NotificationServiceApplication;
 import erp.shared.proto.approval.ApprovalResultStatus;
 import erp.shared.proto.approval.StepStatus;
+import org.springframework.amqp.core.AmqpAdmin;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.RabbitMQContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -68,12 +71,17 @@ class ApprovalFlowE2ETest {
     @Container
     static final MongoDBContainer mongo = new MongoDBContainer("mongo:8.2");
 
+    @Container
+    static final RabbitMQContainer rabbit = new RabbitMQContainer("rabbitmq:4.2.1-management");
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private ConfigurableApplicationContext employeeContext;
     private ConfigurableApplicationContext notificationContext;
     private ConfigurableApplicationContext processingContext;
     private ConfigurableApplicationContext approvalRequestContext;
+
+    private AmqpAdmin amqpAdmin;
 
     private ApprovalRepository approvalRepository;
     private ApprovalQueueService approvalQueueService;
@@ -84,8 +92,6 @@ class ApprovalFlowE2ETest {
     private int notificationPort;
     private int processingPort;
     private int approvalPort;
-    private int processingGrpcPort;
-    private int approvalGrpcPort;
 
     private Long requesterId;
     private Long approver1Id;
@@ -98,18 +104,21 @@ class ApprovalFlowE2ETest {
     void setUpEnvironment() {
         mongo.start();
         mysql.start();
+        rabbit.start();
 
         String mongoUri = String.format("mongodb://%s:%d/approval-e2e", mongo.getHost(), mongo.getMappedPort(27017));
+        String rabbitHost = rabbit.getHost();
+        Integer rabbitPort = rabbit.getAmqpPort();
+        String rabbitUsername = rabbit.getAdminUsername();
+        String rabbitPassword = rabbit.getAdminPassword();
 
         employeePort = findFreePort();
         notificationPort = findFreePort();
         processingPort = findFreePort();
         approvalPort = findFreePort();
-        processingGrpcPort = findFreePort();
-        approvalGrpcPort = findFreePort();
 
-        System.out.printf("[E2E] ports - employee:%d, notification:%d, processing:%d, approval:%d, grpcProcessing:%d, grpcApproval:%d%n",
-                employeePort, notificationPort, processingPort, approvalPort, processingGrpcPort, approvalGrpcPort);
+        System.out.printf("[E2E] ports - employee:%d, notification:%d, processing:%d, approval:%d, rabbit:%s:%d%n",
+                employeePort, notificationPort, processingPort, approvalPort, rabbitHost, rabbitPort);
 
         Map<String, Object> employeeProps = new HashMap<>();
         employeeProps.put("server.port", employeePort);
@@ -142,8 +151,10 @@ class ApprovalFlowE2ETest {
 
         Map<String, Object> processingProps = new HashMap<>();
         processingProps.put("server.port", processingPort);
-        processingProps.put("spring.grpc.server.port", processingGrpcPort);
-        processingProps.put("spring.grpc.client.channels.approval-request.address", "localhost:" + approvalGrpcPort);
+        processingProps.put("spring.rabbitmq.host", rabbitHost);
+        processingProps.put("spring.rabbitmq.port", rabbitPort);
+        processingProps.put("spring.rabbitmq.username", rabbitUsername);
+        processingProps.put("spring.rabbitmq.password", rabbitPassword);
         processingProps.put("approval-request.retry.max-attempts", 2);
         processingProps.put("approval-request.retry.backoff-millis", 50);
         processingProps.put("security.jwt.secret", TestJwtFactory.SECRET);
@@ -158,8 +169,10 @@ class ApprovalFlowE2ETest {
         Map<String, Object> approvalProps = new HashMap<>();
         approvalProps.put("server.port", approvalPort);
         approvalProps.put("spring.data.mongodb.uri", mongoUri);
-        approvalProps.put("spring.grpc.server.port", approvalGrpcPort);
-        approvalProps.put("spring.grpc.client.channels.approval-processing.address", "localhost:" + processingGrpcPort);
+        approvalProps.put("spring.rabbitmq.host", rabbitHost);
+        approvalProps.put("spring.rabbitmq.port", rabbitPort);
+        approvalProps.put("spring.rabbitmq.username", rabbitUsername);
+        approvalProps.put("spring.rabbitmq.password", rabbitPassword);
         approvalProps.put("employee.base-url", "http://localhost:" + employeePort);
         approvalProps.put("notification.base-url", "http://localhost:" + notificationPort);
         approvalProps.put("notification.path", "/internal/notifications");
@@ -178,6 +191,7 @@ class ApprovalFlowE2ETest {
 
         approvalRepository = approvalRequestContext.getBean(ApprovalRepository.class);
         approvalQueueService = processingContext.getBean(ApprovalQueueService.class);
+        amqpAdmin = approvalRequestContext.getBean(AmqpAdmin.class);
 
         seedEmployees();
     }
@@ -187,6 +201,8 @@ class ApprovalFlowE2ETest {
         approvalRepository.deleteAll();
         clearQueue(approver1Id);
         clearQueue(approver2Id);
+        amqpAdmin.purgeQueue(ApprovalMessagingConstants.REQUEST_QUEUE_NAME, true);
+        amqpAdmin.purgeQueue(ApprovalMessagingConstants.RESULT_QUEUE_NAME, true);
     }
 
     @AfterAll
@@ -197,6 +213,7 @@ class ApprovalFlowE2ETest {
         closeQuietly(employeeContext);
         mongo.stop();
         mysql.stop();
+        rabbit.stop();
     }
 
     @Test

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,9 +24,8 @@ import erp.common.exception.CustomException;
 import erp.common.exception.ErrorCode;
 import erp.common.security.AuthUtil;
 import erp.common.security.Role;
-import erp.shared.proto.approval.ApprovalGrpc;
+import erp.common.messaging.ApprovalMessagingConstants;
 import erp.shared.proto.approval.ApprovalRequest;
-import erp.shared.proto.approval.ApprovalResultRequest;
 import erp.shared.proto.approval.ApprovalResultStatus;
 import erp.shared.proto.approval.Step;
 import erp.shared.proto.approval.StepStatus;
@@ -37,7 +37,7 @@ import lombok.RequiredArgsConstructor;
 public class ApprovalRequestService {
 
     private final ApprovalRepository approvalRepository;
-    private final ApprovalGrpc.ApprovalBlockingStub approvalBlockingStub;
+    private final RabbitTemplate rabbitTemplate;
     private final AuthUtil authUtil;
     private final RequestIdGenerator requestIdGenerator;
     private final EmployeeClient employeeClient;
@@ -231,7 +231,7 @@ public class ApprovalRequestService {
             return;
         }
 
-        ApprovalRequest grpcRequest = ApprovalRequest.newBuilder()
+        ApprovalRequest approvalRequestMessage = ApprovalRequest.newBuilder()
                 .setRequestId(doc.getRequestId())
                 .setRequesterId(doc.getRequesterId())
                 .setTitle(doc.getTitle())
@@ -240,11 +240,11 @@ public class ApprovalRequestService {
                         .map(s -> Step.newBuilder()
                                 .setStep(s.getStep())
                                 .setApproverId(s.getApproverId())
-                                .setStatus(s.getStatus())
-                                .build())
+                        .setStatus(s.getStatus())
+                        .build())
                         .toList())
                 .build();
-        callProcessingWithRetry(grpcRequest);
+        callProcessingWithRetry(approvalRequestMessage);
     }
 
     private StepStatus mapStatus(ApprovalResultStatus status) {
@@ -273,7 +273,10 @@ public class ApprovalRequestService {
     private void callProcessingWithRetry(ApprovalRequest request) {
         for (int attempt = 1; attempt <= Math.max(1, processingMaxAttempts); attempt++) {
             try {
-                approvalBlockingStub.requestApproval(request);
+                rabbitTemplate.convertAndSend(
+                        ApprovalMessagingConstants.EXCHANGE_NAME,
+                        ApprovalMessagingConstants.ROUTING_KEY_REQUEST,
+                        request.toByteArray());
                 return;
             } catch (Exception e) {
                 if (attempt == processingMaxAttempts) {

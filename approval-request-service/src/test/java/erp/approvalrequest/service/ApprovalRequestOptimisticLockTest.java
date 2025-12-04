@@ -19,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 import erp.approvalrequest.client.EmployeeClient;
 import erp.approvalrequest.client.NotificationClient;
@@ -27,7 +28,6 @@ import erp.approvalrequest.repository.ApprovalRepository;
 import erp.common.exception.CustomException;
 import erp.common.exception.ErrorCode;
 import erp.common.security.AuthUtil;
-import erp.shared.proto.approval.ApprovalGrpc;
 import erp.shared.proto.approval.ApprovalResultStatus;
 import erp.shared.proto.approval.StepStatus;
 
@@ -37,7 +37,7 @@ class ApprovalRequestOptimisticLockTest {
     @Mock
     private ApprovalRepository approvalRepository;
     @Mock
-    private ApprovalGrpc.ApprovalBlockingStub approvalBlockingStub;
+    private RabbitTemplate rabbitTemplate;
     @Mock
     private AuthUtil authUtil;
     @Mock

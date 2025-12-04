@@ -1,4 +1,11 @@
 <current_status>
+
+- 2025-12-04: docker-compose.yml / docker-compose.k8s.yml 에 RabbitMQ(4.2.1-management) 서비스 추가, 데이터 볼륨/헬스체크 포함.
+- 2025-12-04: .env.compose 에 RabbitMQ 연결 정보(RABBITMQ_HOST/PORT/USERNAME/PASSWORD/MANAGEMENT_PORT) 추가.
+- 2025-12-04: 4.2 RabbitMQ 기반 비동기 통신 도입을 위한 상세 구현 계획을 PLAN.md에 작성 완료.
+- 2025-12-04: approval-request-service/approval-processing-service에 RabbitMQ 비동기 통신 구현 완료(gRPC 제거, 리스너/프로듀서 추가) 및 :approval-request-service:test, :approval-processing-service:test 통과.
+- 2025-12-04: api-gateway를 spring-cloud-starter-gateway-server-webflux로 마이그레이션하고 application.yml 키를 spring.cloud.gateway.server.webflux.* 접두사로 변경해 경고 제거 준비 완료.
+
 </current_status>
 
 <project_guidelines>

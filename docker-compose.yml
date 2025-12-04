@@ -48,6 +48,8 @@ services:
       context: .
       dockerfile: approval-request-service/Dockerfile
     depends_on:
+      rabbitmq:
+        condition: service_healthy
       mongo:
         condition: service_healthy
       approval-processing-service:
@@ -68,21 +70,29 @@ services:
       APPROVAL_PROCESSING_GRPC_ADDRESS: ${APPROVAL_PROCESSING_GRPC_ADDRESS}
       EMPLOYEE_SERVICE_BASE_URL: ${EMPLOYEE_SERVICE_BASE_URL}
       NOTIFICATION_BASE_URL: ${NOTIFICATION_BASE_URL}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
     ports:
       - "8082:8080"
-      - "9091:9091"
 
   approval-processing-service:
     build:
       context: .
       dockerfile: approval-processing-service/Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       JWT_SECRET: ${JWT_SECRET}
-      APPROVAL_REQUEST_GRPC_ADDRESS: ${APPROVAL_REQUEST_GRPC_ADDRESS}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
     ports:
       - "8084:8080"
-      - "9090:9090"
 
   notification-service:
     build:
@@ -157,6 +167,23 @@ services:
     "]
     restart: on-failure
 
+  rabbitmq:
+    image: rabbitmq:4.2.1-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   mysql_data:
   mongo_data:
+  rabbitmq_data:

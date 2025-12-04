@@ -10,6 +10,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -18,10 +19,12 @@ import erp.approvalrequest.domain.ApprovalDocument;
 import erp.approvalrequest.repository.ApprovalRepository;
 import erp.approvalrequest.service.RequestIdGenerator;
 import erp.shared.proto.approval.StepStatus;
+import erp.approvalrequest.support.TestRabbitConfig;
 
 @SpringBootTest
 @ActiveProfiles("test")
 @Testcontainers
+@Import(TestRabbitConfig.class)
 public abstract class ApprovalRequestIntegrationTestSupport {
 
     @Container

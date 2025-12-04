@@ -11,39 +11,41 @@ spring:
       - org.springframework.boot.autoconfigure.security.reactive.ReactiveUserDetailsServiceAutoConfiguration
   cloud:
     gateway:
-      default-filters:
-        - RemoveRequestHeader=Authorization
-      routes:
-        - id: employee-auth
-          uri: ${EMPLOYEE_SERVICE_URL}
-          predicates:
-            - Path=/auth/**
-        - id: employee-service
-          uri: ${EMPLOYEE_SERVICE_URL}
-          predicates:
-            - Path=/employees/**
-        - id: approval-request-service
-          uri: ${APPROVAL_REQUEST_SERVICE_URL}
-          predicates:
-            - Path=/approvals/**
-        - id: approval-processing-service
-          uri: ${APPROVAL_PROCESSING_SERVICE_URL}
-          predicates:
-            - Path=/process/**
-        - id: notification-service
-          uri: ${NOTIFICATION_SERVICE_URL}
-          predicates:
-            - Path=/notifications/**
-        - id: websocket-notification
-          uri: ${NOTIFICATION_SERVICE_URL}
-          predicates:
-            - Path=/ws/**
-        - id: block-internal
-          uri: no://op
-          predicates:
-            - Path=/internal/**
-          filters:
-            - SetStatus=403
+      server:
+        webflux:
+          default-filters:
+            - RemoveRequestHeader=Authorization
+          routes:
+            - id: employee-auth
+              uri: ${EMPLOYEE_SERVICE_URL}
+              predicates:
+                - Path=/auth/**
+            - id: employee-service
+              uri: ${EMPLOYEE_SERVICE_URL}
+              predicates:
+                - Path=/employees/**
+            - id: approval-request-service
+              uri: ${APPROVAL_REQUEST_SERVICE_URL}
+              predicates:
+                - Path=/approvals/**
+            - id: approval-processing-service
+              uri: ${APPROVAL_PROCESSING_SERVICE_URL}
+              predicates:
+                - Path=/process/**
+            - id: notification-service
+              uri: ${NOTIFICATION_SERVICE_URL}
+              predicates:
+                - Path=/notifications/**
+            - id: websocket-notification
+              uri: ${NOTIFICATION_SERVICE_URL}
+              predicates:
+                - Path=/ws/**
+            - id: block-internal
+              uri: no://op
+              predicates:
+                - Path=/internal/**
+              filters:
+                - SetStatus=403
 
 security:
   jwt:

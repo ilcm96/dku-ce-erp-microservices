@@ -175,7 +175,7 @@ class ApprovalProcessingControllerTest {
         }
 
         @Test
-        @DisplayName("정상 처리 시 ApprovalResultRequest 를 구성해 반환 gRPC 를 호출한다")
+        @DisplayName("정상 처리 시 ApprovalResultRequest 를 구성해 결과를 발행한다")
         void handleSuccess() throws Exception {
             // given
             // success path는 별도 스텁 없이 호출만 검증한다.
@@ -193,8 +193,8 @@ class ApprovalProcessingControllerTest {
         }
 
         @Test
-        @DisplayName("gRPC 호출 실패 시 설정된 재시도 횟수만큼 재시도한다")
-        void retryWhenGrpcFails() throws Exception {
+        @DisplayName("메시지 발행 실패 시 설정된 재시도 횟수만큼 재시도한다")
+        void retryWhenPublishFails() throws Exception {
             // given
             // success path는 별도 스텁 없이 호출만 검증한다.
 

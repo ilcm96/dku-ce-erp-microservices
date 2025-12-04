@@ -6,14 +6,17 @@ spring:
     exclude:
       - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
       - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
-  grpc:
-    server:
-      port: 0
-      host: 0.0.0.0
-    client:
-      channels:
-        approval-processing:
-          address: localhost:0
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    dynamic: false
+    listener:
+      simple:
+        auto-startup: false
+      direct:
+        auto-startup: false
 
 processing:
   retry:

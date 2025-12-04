@@ -3,6 +3,7 @@ package erp.approvalprocessing.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -20,16 +21,17 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import erp.approvalprocessing.dto.ApprovalQueueItemResponse;
 import erp.common.exception.CustomException;
 import erp.common.exception.ErrorCode;
 import erp.common.security.AuthUtil;
 import erp.common.security.Role;
-import erp.shared.proto.approval.ApprovalGrpc;
+import erp.common.messaging.ApprovalMessagingConstants;
 import erp.shared.proto.approval.ApprovalRequest;
 import erp.shared.proto.approval.ApprovalResultRequest;
-import erp.shared.proto.approval.ApprovalResultResponse;
 import erp.shared.proto.approval.ApprovalResultStatus;
 import erp.shared.proto.approval.Step;
 import erp.shared.proto.approval.StepStatus;
@@ -45,7 +47,7 @@ class ApprovalProcessingServiceTest {
     AuthUtil authUtil;
 
     @Mock
-    ApprovalGrpc.ApprovalBlockingStub approvalRequestStub;
+    RabbitTemplate rabbitTemplate;
 
     @InjectMocks
     ApprovalProcessingService approvalProcessingService;
@@ -169,25 +171,31 @@ class ApprovalProcessingServiceTest {
         }
 
         @Test
-        @DisplayName("정상 처리 시 ApprovalResultRequest 를 생성해 gRPC 콜백을 호출한다")
+        @DisplayName("정상 처리 시 ApprovalResultRequest 를 생성해 RabbitMQ 로 발행한다")
         void handleSuccess() {
             // given
             mockNonAdmin(1L);
             ApprovalRequest request = approvalRequest(10L, 1L, 2, StepStatus.STEP_STATUS_PENDING);
             when(approvalQueueService.getQueue(1L)).thenReturn(List.of(request));
             when(approvalQueueService.remove(1L, 10L)).thenReturn(request);
-            when(approvalRequestStub.returnApprovalResult(any())).thenReturn(
-                    ApprovalResultResponse.newBuilder().setStatus("accepted").build());
 
             // when
             approvalProcessingService.handle(1L, 10L, ApprovalResultStatus.APPROVAL_RESULT_APPROVED);
 
             // then
-            ArgumentCaptor<ApprovalResultRequest> captor = ArgumentCaptor.forClass(ApprovalResultRequest.class);
             verify(approvalQueueService).remove(1L, 10L);
-            verify(approvalRequestStub).returnApprovalResult(captor.capture());
+            ArgumentCaptor<byte[]> captor = ArgumentCaptor.forClass(byte[].class);
+            verify(rabbitTemplate).convertAndSend(
+                    eq(ApprovalMessagingConstants.EXCHANGE_NAME),
+                    eq(ApprovalMessagingConstants.ROUTING_KEY_RESULT),
+                    captor.capture());
 
-            ApprovalResultRequest sent = captor.getValue();
+            ApprovalResultRequest sent;
+            try {
+                sent = ApprovalResultRequest.parseFrom(captor.getValue());
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+            }
             assertThat(sent.getRequestId()).isEqualTo(10L);
             assertThat(sent.getApproverId()).isEqualTo(1L);
             assertThat(sent.getStep()).isEqualTo(2);
@@ -195,8 +203,8 @@ class ApprovalProcessingServiceTest {
         }
 
         @Test
-        @DisplayName("gRPC 콜백 실패 시 설정된 횟수만큼 재시도한다")
-        void retryWhenGrpcFails() {
+        @DisplayName("메시지 발행 실패 시 설정된 횟수만큼 재시도한다")
+        void retryWhenPublishFails() {
             // given
             mockNonAdmin(1L);
             ApprovalRequest request = approvalRequest(11L, 1L, 1, StepStatus.STEP_STATUS_PENDING);
@@ -204,20 +212,24 @@ class ApprovalProcessingServiceTest {
             when(approvalQueueService.remove(1L, 11L)).thenReturn(request);
 
             doThrow(new RuntimeException("first fail"))
-                    .doReturn(ApprovalResultResponse.newBuilder().setStatus("accepted").build())
-                    .when(approvalRequestStub)
-                    .returnApprovalResult(any());
+                    .doNothing()
+                    .when(rabbitTemplate)
+                    .convertAndSend(eq(ApprovalMessagingConstants.EXCHANGE_NAME),
+                            eq(ApprovalMessagingConstants.ROUTING_KEY_RESULT), any(byte[].class));
 
             // when
             approvalProcessingService.handle(1L, 11L, ApprovalResultStatus.APPROVAL_RESULT_REJECTED);
 
             // then
-            verify(approvalRequestStub, times(2)).returnApprovalResult(any());
+            verify(rabbitTemplate, times(2)).convertAndSend(
+                    eq(ApprovalMessagingConstants.EXCHANGE_NAME),
+                    eq(ApprovalMessagingConstants.ROUTING_KEY_RESULT),
+                    any(byte[].class));
         }
     }
 
     @Nested
-    @DisplayName("acceptRequest / acceptResult")
+    @DisplayName("acceptRequest")
     class Accepts {
 
         @Test
@@ -231,22 +243,6 @@ class ApprovalProcessingServiceTest {
 
             // then
             verify(approvalQueueService).enqueue(request);
-        }
-
-        @Test
-        @DisplayName("acceptResult 는 approverId/requestId 기준으로 큐에서 제거한다")
-        void acceptResult() {
-            // given
-            ApprovalResultRequest request = ApprovalResultRequest.newBuilder()
-                    .setRequestId(1L)
-                    .setApproverId(3L)
-                    .build();
-
-            // when
-            approvalProcessingService.acceptResult(request);
-
-            // then
-            verify(approvalQueueService).remove(3L, 1L);
         }
     }
 

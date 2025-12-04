@@ -3,6 +3,7 @@ package erp.approvalprocessing.service;
 import java.util.Comparator;
 import java.util.List;
 
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +12,7 @@ import erp.common.exception.CustomException;
 import erp.common.exception.ErrorCode;
 import erp.common.security.AuthUtil;
 import erp.common.security.Role;
-import erp.shared.proto.approval.ApprovalGrpc;
+import erp.common.messaging.ApprovalMessagingConstants;
 import erp.shared.proto.approval.ApprovalRequest;
 import erp.shared.proto.approval.ApprovalResultRequest;
 import erp.shared.proto.approval.ApprovalResultStatus;
@@ -24,7 +25,7 @@ public class ApprovalProcessingService {
 
     private final ApprovalQueueService approvalQueueService;
     private final AuthUtil authUtil;
-    private final ApprovalGrpc.ApprovalBlockingStub approvalRequestStub;
+    private final RabbitTemplate rabbitTemplate;
 
     @Value("${approval-request.retry.max-attempts}")
     private int approvalRequestMaxAttempts;
@@ -72,10 +73,6 @@ public class ApprovalProcessingService {
         approvalQueueService.enqueue(request);
     }
 
-    public void acceptResult(ApprovalResultRequest request) {
-        approvalQueueService.remove(request.getApproverId(), request.getRequestId());
-    }
-
     private void validateStatus(ApprovalResultStatus status) {
         if (status == null || status == ApprovalResultStatus.APPROVAL_RESULT_STATUS_UNSPECIFIED) {
             throw new CustomException(ErrorCode.APPROVAL_PROCESS_INVALID_STATUS);
@@ -102,7 +99,10 @@ public class ApprovalProcessingService {
     private void callReturnWithRetry(ApprovalResultRequest request) {
         for (int attempt = 1; attempt <= Math.max(1, approvalRequestMaxAttempts); attempt++) {
             try {
-                approvalRequestStub.returnApprovalResult(request);
+                rabbitTemplate.convertAndSend(
+                        ApprovalMessagingConstants.EXCHANGE_NAME,
+                        ApprovalMessagingConstants.ROUTING_KEY_RESULT,
+                        request.toByteArray());
                 return;
             } catch (Exception e) {
                 if (attempt == approvalRequestMaxAttempts) {

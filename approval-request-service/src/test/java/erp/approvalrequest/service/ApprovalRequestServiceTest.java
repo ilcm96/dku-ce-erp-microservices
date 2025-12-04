@@ -4,12 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.doThrow;
 
 import java.time.Instant;
 import java.util.List;
@@ -25,6 +27,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import erp.approvalrequest.ApprovalRequestIntegrationTestSupport;
 import erp.approvalrequest.client.EmployeeClient;
@@ -37,7 +41,7 @@ import erp.common.exception.CustomException;
 import erp.common.exception.ErrorCode;
 import erp.common.security.AuthUtil;
 import erp.common.security.Role;
-import erp.shared.proto.approval.ApprovalGrpc;
+import erp.common.messaging.ApprovalMessagingConstants;
 import erp.shared.proto.approval.ApprovalRequest;
 import erp.shared.proto.approval.ApprovalResultStatus;
 import erp.shared.proto.approval.StepStatus;
@@ -56,7 +60,7 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
     private ApprovalRepository approvalRepository;
 
     @Autowired
-    private ApprovalGrpc.ApprovalBlockingStub approvalBlockingStub;
+    private RabbitTemplate rabbitTemplate;
 
     @Autowired
     private EmployeeClient employeeClient;
@@ -69,17 +73,11 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
 
     @AfterEach
     void tearDownMocks() {
-        reset(approvalBlockingStub, employeeClient, notificationClient, authUtil);
+        reset(rabbitTemplate, employeeClient, notificationClient, authUtil);
     }
 
     @TestConfiguration
     static class MockConfig {
-
-        @Bean
-        @Primary
-        ApprovalGrpc.ApprovalBlockingStub testApprovalBlockingStub() {
-            return Mockito.mock(ApprovalGrpc.ApprovalBlockingStub.class);
-        }
 
         @Bean
         @Primary
@@ -115,8 +113,6 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
                     .willReturn(new EmployeeClient.EmployeeDto(1L, "req@example.com", "요청자", "개발팀", "사원", Role.EMPLOYEE));
             given(employeeClient.findRole(10L)).willReturn(Role.APPROVER);
             given(employeeClient.findRole(20L)).willReturn(Role.ADMIN);
-            given(approvalBlockingStub.requestApproval(any()))
-                    .willReturn(erp.shared.proto.approval.ApprovalResponse.newBuilder().setStatus("queued").build());
 
             // when
             ApprovalResponse response = approvalRequestService.create(request);
@@ -136,13 +132,21 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
             assertThat(saved.getCreatedAt()).isNotNull();
             assertThat(saved.getUpdatedAt()).isNotNull();
 
-            // then: gRPC 호출 검증
-            ArgumentCaptor<ApprovalRequest> captor = ArgumentCaptor.forClass(ApprovalRequest.class);
-            verify(approvalBlockingStub, times(1)).requestApproval(captor.capture());
-            ApprovalRequest grpcRequest = captor.getValue();
-            assertThat(grpcRequest.getRequestId()).isEqualTo(saved.getRequestId());
-            assertThat(grpcRequest.getStepsList()).hasSize(2);
-            assertThat(grpcRequest.getSteps(0).getStatus()).isEqualTo(StepStatus.STEP_STATUS_PENDING);
+            // then: RabbitMQ 발행 검증
+            ArgumentCaptor<byte[]> captor = ArgumentCaptor.forClass(byte[].class);
+            verify(rabbitTemplate, times(1)).convertAndSend(
+                    eq(ApprovalMessagingConstants.EXCHANGE_NAME),
+                    eq(ApprovalMessagingConstants.ROUTING_KEY_REQUEST),
+                    captor.capture());
+            ApprovalRequest sent;
+            try {
+                sent = ApprovalRequest.parseFrom(captor.getValue());
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+            }
+            assertThat(sent.getRequestId()).isEqualTo(saved.getRequestId());
+            assertThat(sent.getStepsList()).hasSize(2);
+            assertThat(sent.getSteps(0).getStatus()).isEqualTo(StepStatus.STEP_STATUS_PENDING);
         }
 
         @Test
@@ -353,14 +357,15 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
             ApprovalDocument doc = saveDocument(1L, List.of(step(1, 10L, StepStatus.STEP_STATUS_PENDING)), StepStatus.STEP_STATUS_PENDING);
             given(authUtil.currentUserId()).willReturn(1L);
             given(authUtil.hasRole(Role.ADMIN)).willReturn(false);
-            given(approvalBlockingStub.requestApproval(any()))
-                    .willReturn(erp.shared.proto.approval.ApprovalResponse.newBuilder().setStatus("queued").build());
 
             // when
             approvalRequestService.resendPending(doc.getRequestId());
 
-            // then: gRPC 호출 검증
-            verify(approvalBlockingStub, times(1)).requestApproval(any(ApprovalRequest.class));
+            // then: 메시지 발행 검증
+            verify(rabbitTemplate, times(1)).convertAndSend(
+                    eq(ApprovalMessagingConstants.EXCHANGE_NAME),
+                    eq(ApprovalMessagingConstants.ROUTING_KEY_REQUEST),
+                    any(byte[].class));
         }
 
         @Test
@@ -375,8 +380,8 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
             // when
             approvalRequestService.resendPending(doc.getRequestId());
 
-            // then: gRPC 호출 없음
-            verifyNoInteractions(approvalBlockingStub);
+            // then: 메시지 발행 없음
+            verifyNoInteractions(rabbitTemplate);
         }
 
         @Test
@@ -405,8 +410,6 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
                             step(1, 10L, StepStatus.STEP_STATUS_PENDING),
                             step(2, 20L, StepStatus.STEP_STATUS_PENDING)),
                     StepStatus.STEP_STATUS_PENDING);
-            given(approvalBlockingStub.requestApproval(any()))
-                    .willReturn(erp.shared.proto.approval.ApprovalResponse.newBuilder().setStatus("queued").build());
 
             // when
             approvalRequestService.updateResult(
@@ -418,8 +421,11 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
             assertThat(updated.getSteps().get(1).getStatus()).isEqualTo(StepStatus.STEP_STATUS_PENDING);
             assertThat(updated.getFinalStatus()).isEqualTo(StepStatus.STEP_STATUS_PENDING);
 
-            // then: 다음 단계 gRPC 전송
-            verify(approvalBlockingStub, times(1)).requestApproval(any(ApprovalRequest.class));
+            // then: 다음 단계 메시지 전송
+            verify(rabbitTemplate, times(1)).convertAndSend(
+                    eq(ApprovalMessagingConstants.EXCHANGE_NAME),
+                    eq(ApprovalMessagingConstants.ROUTING_KEY_REQUEST),
+                    any(byte[].class));
         }
 
         @Test
@@ -444,7 +450,7 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
             verify(notificationClient, times(1)).send(eq(1L), eq(String.format(
                     "{\"requestId\":%d,\"result\":\"approved\",\"finalResult\":\"approved\"}",
                     doc.getRequestId())));
-            verify(approvalBlockingStub, never()).requestApproval(any());
+            verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), any(byte[].class));
         }
 
         @Test
@@ -467,7 +473,7 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
             verify(notificationClient, times(1)).send(eq(1L), eq(String.format(
                     "{\"requestId\":%d,\"result\":\"rejected\",\"rejectedBy\":%d,\"finalResult\":\"rejected\"}",
                     doc.getRequestId(), 10L)));
-            verify(approvalBlockingStub, never()).requestApproval(any());
+            verify(rabbitTemplate, never()).convertAndSend(anyString(), anyString(), any(byte[].class));
         }
 
         @Test
@@ -486,7 +492,7 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
             // then: 상태 변경 없음
             ApprovalDocument updated = approvalRepository.findByRequestId(doc.getRequestId()).orElseThrow();
             assertThat(updated.getSteps().get(0).getStatus()).isEqualTo(StepStatus.STEP_STATUS_APPROVED);
-            verifyNoInteractions(notificationClient, approvalBlockingStub);
+            verifyNoInteractions(notificationClient, rabbitTemplate);
         }
 
         @Test
@@ -551,15 +557,20 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
             given(employeeClient.findById(1L))
                     .willReturn(new EmployeeClient.EmployeeDto(1L, "req@example.com", "요청자", "개발팀", "사원", Role.EMPLOYEE));
             given(employeeClient.findRole(10L)).willReturn(Role.APPROVER);
-            given(approvalBlockingStub.requestApproval(any()))
-                    .willThrow(new RuntimeException("first fail"))
-                    .willReturn(erp.shared.proto.approval.ApprovalResponse.newBuilder().setStatus("queued").build());
+            doThrow(new RuntimeException("first fail"))
+                    .doNothing()
+                    .when(rabbitTemplate)
+                    .convertAndSend(eq(ApprovalMessagingConstants.EXCHANGE_NAME),
+                            eq(ApprovalMessagingConstants.ROUTING_KEY_REQUEST), any(byte[].class));
 
             // when
             approvalRequestService.create(request);
 
             // then: 재시도 횟수 검증
-            verify(approvalBlockingStub, times(2)).requestApproval(any(ApprovalRequest.class));
+            verify(rabbitTemplate, times(2)).convertAndSend(
+                    eq(ApprovalMessagingConstants.EXCHANGE_NAME),
+                    eq(ApprovalMessagingConstants.ROUTING_KEY_REQUEST),
+                    any(byte[].class));
         }
 
         @Test
@@ -571,14 +582,19 @@ class ApprovalRequestServiceTest extends ApprovalRequestIntegrationTestSupport {
             given(employeeClient.findById(1L))
                     .willReturn(new EmployeeClient.EmployeeDto(1L, "req@example.com", "요청자", "개발팀", "사원", Role.EMPLOYEE));
             given(employeeClient.findRole(10L)).willReturn(Role.APPROVER);
-            given(approvalBlockingStub.requestApproval(any()))
-                    .willThrow(new RuntimeException("fail1"))
-                    .willThrow(new RuntimeException("fail2"));
+            doThrow(new RuntimeException("fail1"))
+                    .doThrow(new RuntimeException("fail2"))
+                    .when(rabbitTemplate)
+                    .convertAndSend(eq(ApprovalMessagingConstants.EXCHANGE_NAME),
+                            eq(ApprovalMessagingConstants.ROUTING_KEY_REQUEST), any(byte[].class));
 
             // when & then: 예외 검증
             assertThatThrownBy(() -> approvalRequestService.create(request))
                     .isInstanceOf(RuntimeException.class);
-            verify(approvalBlockingStub, times(2)).requestApproval(any(ApprovalRequest.class));
+            verify(rabbitTemplate, times(2)).convertAndSend(
+                    eq(ApprovalMessagingConstants.EXCHANGE_NAME),
+                    eq(ApprovalMessagingConstants.ROUTING_KEY_REQUEST),
+                    any(byte[].class));
         }
     }
 }

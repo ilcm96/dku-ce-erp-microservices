@@ -5,13 +5,11 @@ spring:
     exclude:
       - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
-  grpc:
-    client:
-      channels:
-        approval-request:
-          address: ${APPROVAL_REQUEST_GRPC_ADDRESS}
-    server:
-      port: 9090
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
 
 security:
   jwt:
