@@ -1,4 +1,5 @@
-<current_status></current_status>
+<current_status>
+</current_status>
 
 <project_guidelines>
 

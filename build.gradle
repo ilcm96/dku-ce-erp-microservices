@@ -34,7 +34,8 @@ subprojects {
         imports {
             mavenBom "org.springframework.boot:spring-boot-dependencies:3.5.8"
             mavenBom "org.springframework.grpc:spring-grpc-dependencies:${springGrpcVersion}"
-            mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.1.0"
+            // Boot 3.5.x 호환 Northfields(2025.0.x) 사용해야 한다
+            mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
         }
     }
 
@@ -45,6 +46,16 @@ subprojects {
 
     tasks.withType(Test).configureEach {
         useJUnitPlatform()
+    }
+
+    // 프로토버퍼 코드 생성기와 런타임 버전을 일치시켜 RuntimeVersion 예외를 방지
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'com.google.protobuf') {
+                details.useVersion(protobufVersion)
+                details.because('protoc가 생성한 클래스와 런타임 버전을 맞춰 RuntimeVersion mismatch를 방지합니다.')
+            }
+        }
     }
 }
 
