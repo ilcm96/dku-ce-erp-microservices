@@ -1,0 +1,39 @@
+spring:
+  data:
+    mongodb:
+      auto-index-creation: true
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+  grpc:
+    server:
+      port: 0
+      host: 0.0.0.0
+    client:
+      channels:
+        approval-processing:
+          address: localhost:0
+
+processing:
+  retry:
+    max-attempts: 2
+    backoff-millis: 10
+
+exception:
+  log-only-app-stack-trace: true
+
+security:
+  jwt:
+    secret: test-secret-key-should-be-long-enough-32bytes
+    expiration-minutes: 60
+
+employee:
+  base-url: http://localhost:0
+
+notification:
+  base-url: http://localhost:0
+  path: /internal/notifications
+  retry:
+    max-attempts: 1
+    backoff-millis: 1

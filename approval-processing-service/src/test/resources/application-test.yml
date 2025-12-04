@@ -1,0 +1,25 @@
+exception:
+  log-only-app-stack-trace: true
+
+security:
+  jwt:
+    secret: test-secret-key-should-be-long-enough-32bytes
+
+spring:
+  grpc:
+    client:
+      enabled: true
+      channels:
+        approval-request:
+          address: localhost:0
+    server:
+      enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+
+approval-request:
+  retry:
+    max-attempts: 2
+    backoff-millis: 1

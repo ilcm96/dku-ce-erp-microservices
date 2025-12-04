@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: approval-processing-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  grpc:
+    client:
+      channels:
+        approval-request:
+          address: ${APPROVAL_REQUEST_GRPC_ADDRESS}
+    server:
+      port: 9090
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+
+approval-request:
+  retry:
+    max-attempts: 3
+    backoff-millis: 300

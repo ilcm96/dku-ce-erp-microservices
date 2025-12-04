@@ -1,0 +1,27 @@
+security:
+  jwt:
+    secret: test-secret-key-should-be-long-enough-32bytes
+    expiration-minutes: 60
+
+exception:
+  log-only-app-stack-trace: true
+
+processing:
+  retry:
+    max-attempts: 2
+    backoff-millis: 50
+
+notification:
+  retry:
+    max-attempts: 2
+    backoff-millis: 50
+
+approval-request:
+  retry:
+    max-attempts: 2
+    backoff-millis: 50
+
+spring:
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false

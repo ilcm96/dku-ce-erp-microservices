@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: approval-request-service
+  namespace: erp-approval
+spec:
+  selector:
+    app: approval-request-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: grpc
+      port: 9091
+      targetPort: 9091
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: approval-request-service
+  namespace: erp-approval
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: approval-request-service
+  template:
+    metadata:
+      labels:
+        app: approval-request-service
+    spec:
+      containers:
+        - name: approval-request-service
+          image: approval-request-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+            - containerPort: 9091
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: SPRING_PROFILES_ACTIVE
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: erp-common-secret
+                  key: JWT_SECRET
+            - name: APPROVAL_REQUEST_MONGO_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: APPROVAL_REQUEST_MONGO_HOST
+            - name: APPROVAL_REQUEST_MONGO_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: APPROVAL_REQUEST_MONGO_PORT
+            - name: APPROVAL_REQUEST_MONGO_DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: APPROVAL_REQUEST_MONGO_DB_NAME
+            - name: APPROVAL_REQUEST_MONGO_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: erp-common-secret
+                  key: APPROVAL_REQUEST_MONGO_USERNAME
+            - name: APPROVAL_REQUEST_MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: erp-common-secret
+                  key: APPROVAL_REQUEST_MONGO_PASSWORD
+            - name: APPROVAL_REQUEST_MONGO_AUTH_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: APPROVAL_REQUEST_MONGO_AUTH_DB
+            - name: APPROVAL_PROCESSING_GRPC_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: APPROVAL_PROCESSING_GRPC_ADDRESS
+            - name: EMPLOYEE_SERVICE_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: EMPLOYEE_SERVICE_BASE_URL
+            - name: NOTIFICATION_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: NOTIFICATION_BASE_URL
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30

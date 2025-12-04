@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: approval-processing-service
+  namespace: erp-approval
+spec:
+  selector:
+    app: approval-processing-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: grpc
+      port: 9090
+      targetPort: 9090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: approval-processing-service
+  namespace: erp-approval
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: approval-processing-service
+  template:
+    metadata:
+      labels:
+        app: approval-processing-service
+    spec:
+      containers:
+        - name: approval-processing-service
+          image: approval-processing-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+            - containerPort: 9090
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: SPRING_PROFILES_ACTIVE
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: erp-common-secret
+                  key: JWT_SECRET
+            - name: APPROVAL_REQUEST_GRPC_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: APPROVAL_REQUEST_GRPC_ADDRESS
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30

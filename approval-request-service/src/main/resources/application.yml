@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: approval-request-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  data:
+    mongodb:
+      uri: mongodb://${APPROVAL_REQUEST_MONGO_USERNAME}:${APPROVAL_REQUEST_MONGO_PASSWORD}@${APPROVAL_REQUEST_MONGO_HOST}:${APPROVAL_REQUEST_MONGO_PORT}/${APPROVAL_REQUEST_MONGO_DB_NAME}?authSource=${APPROVAL_REQUEST_MONGO_AUTH_DB}
+  grpc:
+    client:
+      channels:
+        approval-processing:
+          address: ${APPROVAL_PROCESSING_GRPC_ADDRESS}
+    server:
+      port: 9091
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+
+processing:
+  retry:
+    max-attempts: 3
+    backoff-millis: 300
+
+employee:
+    base-url: ${EMPLOYEE_SERVICE_BASE_URL}
+
+approval:
+  lock:
+    retry:
+      max-attempts: 3
+      backoff-millis: 50
+
+notification:
+  base-url: ${NOTIFICATION_BASE_URL}
+  retry:
+    max-attempts: 3
+    backoff-millis: 200

@@ -1,0 +1,67 @@
+services:
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_DATABASE: ${EMPLOYEE_DB_NAME}
+      MYSQL_USER: ${EMPLOYEE_DB_USERNAME}
+      MYSQL_PASSWORD: ${EMPLOYEE_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${EMPLOYEE_DB_PASSWORD}
+      TZ: UTC
+    command: ["mysqld", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-p${EMPLOYEE_DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:8.2
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${APPROVAL_REQUEST_MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${APPROVAL_REQUEST_MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: ${APPROVAL_REQUEST_MONGO_DB_NAME}
+      MONGO_REPL_KEY: ${MONGO_REPL_KEY}
+    command: ["bash", "-c", "set -e; if [ ! -f /data/configdb/keyfile ]; then umask 077; echo \"$MONGO_REPL_KEY\" > /data/configdb/keyfile; fi; exec docker-entrypoint.sh mongod --replSet docker-rs --bind_ip_all --auth --keyFile /data/configdb/keyfile"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--username", "${APPROVAL_REQUEST_MONGO_USERNAME}", "--password", "${APPROVAL_REQUEST_MONGO_PASSWORD}", "--authenticationDatabase", "${APPROVAL_REQUEST_MONGO_AUTH_DB}", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo-init-replica:
+    image: mongo:8.2
+    depends_on:
+      mongo:
+        condition: service_healthy
+    entrypoint: ["sh", "-c", "\
+      set -e; \
+      echo '[mongo-init] waiting for mongo:27017 to accept connections...'; \
+      for i in $(seq 1 30); do \
+        if mongosh --host mongo --username ${APPROVAL_REQUEST_MONGO_USERNAME} --password ${APPROVAL_REQUEST_MONGO_PASSWORD} --authenticationDatabase ${APPROVAL_REQUEST_MONGO_AUTH_DB} --quiet --eval \"db.adminCommand('ping')\" >/dev/null 2>&1; then \
+          break; \
+        fi; \
+        sleep 2; \
+      done; \
+      echo '[mongo-init] checking replSet status...'; \
+      if mongosh --host mongo --username ${APPROVAL_REQUEST_MONGO_USERNAME} --password ${APPROVAL_REQUEST_MONGO_PASSWORD} --authenticationDatabase ${APPROVAL_REQUEST_MONGO_AUTH_DB} --quiet --eval \"rs.status().members\" >/dev/null 2>&1; then \
+        echo '[mongo-init] replSet already initiated, exit 0'; \
+        exit 0; \
+      fi; \
+      echo '[mongo-init] initiating replSet docker-rs'; \
+      mongosh --host mongo --username ${APPROVAL_REQUEST_MONGO_USERNAME} --password ${APPROVAL_REQUEST_MONGO_PASSWORD} --authenticationDatabase ${APPROVAL_REQUEST_MONGO_AUTH_DB} --quiet --eval \"rs.initiate({_id:'docker-rs',members:[{_id:0,host:'mongo:27017'}]})\"; \
+      \
+      echo '[mongo-init] done.'
+    "]
+    restart: on-failure
+
+volumes:
+  mysql_data:
+  mongo_data:

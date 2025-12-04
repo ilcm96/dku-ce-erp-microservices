@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: employee-service
+  namespace: erp-approval
+spec:
+  selector:
+    app: employee-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: employee-service
+  namespace: erp-approval
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: employee-service
+  template:
+    metadata:
+      labels:
+        app: employee-service
+    spec:
+      containers:
+        - name: employee-service
+          image: employee-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: SPRING_PROFILES_ACTIVE
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: erp-common-secret
+                  key: JWT_SECRET
+            - name: EMPLOYEE_DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: EMPLOYEE_DB_HOST
+            - name: EMPLOYEE_DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: EMPLOYEE_DB_PORT
+            - name: EMPLOYEE_DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: EMPLOYEE_DB_NAME
+            - name: EMPLOYEE_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: erp-common-secret
+                  key: EMPLOYEE_DB_USERNAME
+            - name: EMPLOYEE_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: erp-common-secret
+                  key: EMPLOYEE_DB_PASSWORD
+            - name: EMPLOYEE_ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: erp-common-secret
+                  key: EMPLOYEE_ADMIN_EMAIL
+            - name: EMPLOYEE_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: erp-common-secret
+                  key: EMPLOYEE_ADMIN_PASSWORD
+            - name: EMPLOYEE_ADMIN_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: EMPLOYEE_ADMIN_NAME
+            - name: EMPLOYEE_ADMIN_DEPT
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: EMPLOYEE_ADMIN_DEPT
+            - name: EMPLOYEE_ADMIN_POSITION
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: EMPLOYEE_ADMIN_POSITION
+            - name: EMPLOYEE_ADMIN_ROLE
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: EMPLOYEE_ADMIN_ROLE
+            - name: JWT_EXPIRATION_MINUTES
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: JWT_EXPIRATION_MINUTES
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30

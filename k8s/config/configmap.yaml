@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: erp-common-config
+  namespace: erp-approval
+data:
+  SPRING_PROFILES_ACTIVE: "local"
+
+  # JWT 설정
+  JWT_EXPIRATION_MINUTES: "60"
+
+  # MySQL (호스트에서 Docker로 실행 중)
+  EMPLOYEE_DB_HOST: host.docker.internal
+  EMPLOYEE_DB_PORT: "3306"
+  EMPLOYEE_DB_NAME: database
+
+  # Employee admin seed
+  EMPLOYEE_ADMIN_NAME: Administrator
+  EMPLOYEE_ADMIN_DEPT: HQ
+  EMPLOYEE_ADMIN_POSITION: Admin
+  EMPLOYEE_ADMIN_ROLE: ADMIN
+
+  # Mongo (호스트에서 Docker로 실행 중)
+  APPROVAL_REQUEST_MONGO_HOST: host.docker.internal
+  APPROVAL_REQUEST_MONGO_PORT: "27017"
+  APPROVAL_REQUEST_MONGO_DB_NAME: approval-request
+  APPROVAL_REQUEST_MONGO_AUTH_DB: admin
+
+  # 내부 서비스 간 URL/주소
+  EMPLOYEE_SERVICE_BASE_URL: http://employee-service:8080
+  NOTIFICATION_BASE_URL: http://notification-service:8080
+  APPROVAL_PROCESSING_GRPC_ADDRESS: approval-processing-service:9090
+  APPROVAL_REQUEST_GRPC_ADDRESS: approval-request-service:9091
+  EMPLOYEE_SERVICE_URL: http://employee-service:8080
+  APPROVAL_REQUEST_SERVICE_URL: http://approval-request-service:8080
+  APPROVAL_PROCESSING_SERVICE_URL: http://approval-processing-service:8080
+  NOTIFICATION_SERVICE_URL: http://notification-service:8080

@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: employee-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: jdbc:mysql://${EMPLOYEE_DB_HOST}:${EMPLOYEE_DB_PORT}/${EMPLOYEE_DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${EMPLOYEE_DB_USERNAME}
+    password: ${EMPLOYEE_DB_PASSWORD}
+  sql:
+    init:
+      mode: always
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES}
+
+employee:
+  admin:
+    seed:
+      email: ${EMPLOYEE_ADMIN_EMAIL}
+      name: ${EMPLOYEE_ADMIN_NAME}
+      department: ${EMPLOYEE_ADMIN_DEPT}
+      position: ${EMPLOYEE_ADMIN_POSITION}
+      role: ${EMPLOYEE_ADMIN_ROLE}
+      password: ${EMPLOYEE_ADMIN_PASSWORD}
