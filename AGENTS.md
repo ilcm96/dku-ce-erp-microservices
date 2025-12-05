@@ -1,4 +1,11 @@
 <current_status>
+ 
+"4. 확장 및 심화 구현 과제" 의 경우
+"4.1 쿠버네티스 배포" 는 OrbStack의 도커 환경과 쿠버네티스 클러스터를 사용하여 완료
+"4.2 비동기 메시지 기반 통신 도입" 은 RabbitMQ를 도입하여 approval-request-service와 approval-processing-service 간의 비동기 통신을 구현 완료
+"4.3 창의 영역" 의 경우 기존의 Request Body와 URL에 본인이 누구인지 명시하는 방식을 JWT 토큰 기반 인증으로 전환하는 작업을 수행 완료
+
+---
 
 - 2025-12-04: docker-compose.yml / docker-compose.k8s.yml 에 RabbitMQ(4.2.1-management) 서비스 추가, 데이터 볼륨/헬스체크 포함.
 - 2025-12-04: .env.compose 에 RabbitMQ 연결 정보(RABBITMQ_HOST/PORT/USERNAME/PASSWORD/MANAGEMENT_PORT) 추가.
@@ -6,6 +13,10 @@
 - 2025-12-04: approval-request-service/approval-processing-service에 RabbitMQ 비동기 통신 구현 완료(gRPC 제거, 리스너/프로듀서 추가) 및 :approval-request-service:test, :approval-processing-service:test 통과.
 - 2025-12-04: api-gateway를 spring-cloud-starter-gateway-server-webflux로 마이그레이션하고 application.yml 키를 spring.cloud.gateway.server.webflux.* 접두사로 변경해 경고 제거 준비 완료.
 - 2025-12-05: k8s manifest에서 gRPC 포트/주소 환경변수 제거 후 RabbitMQ 연결 설정(ConfigMap/Secret/env)으로 교체 완료.
+
+- 2025-12-05: report.md에 보고서 1~3 항목(전체 아키텍처, 서비스 간 호출 흐름, REST API 통합 표) 초안 작성 완료.
+- 2025-12-05: .github/workflows에 employee/approval-request/approval-processing/notification 서비스용 Docker 이미지 빌드·푸시 GitHub Actions 워크플로우 추가 완료.
+- 2025-12-05: k8s apps Deployment들의 image를 GHCR 경로(ghcr.io/ilcm96/dku-ce-erp-microservices/*:latest)로 변경 완료.
 
 </current_status>
 

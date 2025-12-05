@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
         - name: approval-request-service
-          image: approval-request-service:latest
+          image: ghcr.io/ilcm96/dku-ce-erp-microservices/approval-request-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
