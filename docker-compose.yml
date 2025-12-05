@@ -9,7 +9,6 @@ services:
       - approval-processing-service
       - notification-service
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       JWT_SECRET: ${JWT_SECRET}
       EMPLOYEE_SERVICE_URL: ${EMPLOYEE_SERVICE_URL}
       APPROVAL_REQUEST_SERVICE_URL: ${APPROVAL_REQUEST_SERVICE_URL}
@@ -26,7 +25,6 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES}
       EMPLOYEE_DB_HOST: mysql
@@ -59,7 +57,6 @@ services:
       notification-service:
         condition: service_started
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       JWT_SECRET: ${JWT_SECRET}
       APPROVAL_REQUEST_MONGO_HOST: ${APPROVAL_REQUEST_MONGO_HOST}
       APPROVAL_REQUEST_MONGO_PORT: ${APPROVAL_REQUEST_MONGO_PORT}
@@ -85,7 +82,6 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       JWT_SECRET: ${JWT_SECRET}
       RABBITMQ_HOST: ${RABBITMQ_HOST}
       RABBITMQ_PORT: ${RABBITMQ_PORT}
@@ -99,7 +95,6 @@ services:
       context: .
       dockerfile: notification-service/Dockerfile
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       JWT_SECRET: ${JWT_SECRET}
     ports:
       - "8083:8080"

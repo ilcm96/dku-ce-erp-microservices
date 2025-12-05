@@ -4,8 +4,6 @@ metadata:
   name: erp-common-config
   namespace: erp-approval
 data:
-  SPRING_PROFILES_ACTIVE: "local"
-
   # JWT 설정
   JWT_EXPIRATION_MINUTES: "60"
 

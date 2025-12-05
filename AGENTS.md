@@ -17,6 +17,7 @@
 - 2025-12-05: report.md에 보고서 1~3 항목(전체 아키텍처, 서비스 간 호출 흐름, REST API 통합 표) 초안 작성 완료.
 - 2025-12-05: .github/workflows에 employee/approval-request/approval-processing/notification 서비스용 Docker 이미지 빌드·푸시 GitHub Actions 워크플로우 추가 완료.
 - 2025-12-05: k8s apps Deployment들의 image를 GHCR 경로(ghcr.io/ilcm96/dku-ce-erp-microservices/*:latest)로 변경 완료.
+- 2025-12-05: docker-compose, k8s ConfigMap/Deployment에서 SPRING_PROFILES_ACTIVE 환경 변수 제거 및 .env.sample 정리 완료.
 
 </current_status>
 

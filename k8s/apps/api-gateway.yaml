@@ -35,11 +35,6 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            - name: SPRING_PROFILES_ACTIVE
-              valueFrom:
-                configMapKeyRef:
-                  name: erp-common-config
-                  key: SPRING_PROFILES_ACTIVE
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
