@@ -26,11 +26,13 @@ data:
   APPROVAL_REQUEST_MONGO_DB_NAME: approval-request
   APPROVAL_REQUEST_MONGO_AUTH_DB: admin
 
+  # RabbitMQ
+  RABBITMQ_HOST: host.docker.internal
+  RABBITMQ_PORT: "5672"
+
   # 내부 서비스 간 URL/주소
   EMPLOYEE_SERVICE_BASE_URL: http://employee-service:8080
   NOTIFICATION_BASE_URL: http://notification-service:8080
-  APPROVAL_PROCESSING_GRPC_ADDRESS: approval-processing-service:9090
-  APPROVAL_REQUEST_GRPC_ADDRESS: approval-request-service:9091
   EMPLOYEE_SERVICE_URL: http://employee-service:8080
   APPROVAL_REQUEST_SERVICE_URL: http://approval-request-service:8080
   APPROVAL_PROCESSING_SERVICE_URL: http://approval-processing-service:8080

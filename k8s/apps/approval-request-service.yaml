@@ -10,9 +10,6 @@ spec:
     - name: http
       port: 8080
       targetPort: 8080
-    - name: grpc
-      port: 9091
-      targetPort: 9091
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -35,7 +32,6 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
-            - containerPort: 9091
           env:
             - name: SPRING_PROFILES_ACTIVE
               valueFrom:
@@ -77,11 +73,26 @@ spec:
                 configMapKeyRef:
                   name: erp-common-config
                   key: APPROVAL_REQUEST_MONGO_AUTH_DB
-            - name: APPROVAL_PROCESSING_GRPC_ADDRESS
+            - name: RABBITMQ_HOST
               valueFrom:
                 configMapKeyRef:
                   name: erp-common-config
-                  key: APPROVAL_PROCESSING_GRPC_ADDRESS
+                  key: RABBITMQ_HOST
+            - name: RABBITMQ_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: erp-common-config
+                  key: RABBITMQ_PORT
+            - name: RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: erp-common-secret
+                  key: RABBITMQ_USERNAME
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: erp-common-secret
+                  key: RABBITMQ_PASSWORD
             - name: EMPLOYEE_SERVICE_BASE_URL
               valueFrom:
                 configMapKeyRef:
