@@ -9,7 +9,7 @@ on:
       - '.github/workflows/build-push-api-gateway.yml'
 
 jobs:
-  build-and-push-aggregator:
+  build-and-push-api-gateway:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
