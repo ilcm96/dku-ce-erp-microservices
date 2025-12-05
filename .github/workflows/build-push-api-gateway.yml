@@ -29,7 +29,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.aggregator
+          file: api-gateway/Dockerfile
           push: true
           tags: ghcr.io/ilcm96/dku-ce-erp-microservices/api-gateway:latest
           cache-from: type=gha
