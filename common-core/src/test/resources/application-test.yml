@@ -1,0 +1,5 @@
+exception:
+  log-only-app-stack-trace: true
+security:
+  jwt:
+    secret: test-secret-key-should-be-long-enough-32bytes

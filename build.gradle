@@ -1,0 +1,211 @@
+plugins {
+    id 'org.springframework.boot' version '3.5.8' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
+    id 'com.google.protobuf' version '0.9.5' apply false
+}
+
+group = 'erp'
+version = '0.0.1-SNAPSHOT'
+description = 'advanced-programming-lab'
+
+ext {
+    set('springGrpcVersion', "0.12.0")
+    set('protobufVersion', "4.33.1")
+    set('grpcJavaVersion', "1.77.0")
+}
+
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'io.spring.dependency-management'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:3.5.8"
+            mavenBom "org.springframework.grpc:spring-grpc-dependencies:${springGrpcVersion}"
+            // Boot 3.5.x 호환 Northfields(2025.0.x) 사용해야 한다
+            mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
+        }
+    }
+
+    dependencies {
+        compileOnly 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    // 프로토버퍼 코드 생성기와 런타임 버전을 일치시켜 RuntimeVersion 예외를 방지
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'com.google.protobuf') {
+                details.useVersion(protobufVersion)
+                details.because('protoc가 생성한 클래스와 런타임 버전을 맞춰 RuntimeVersion mismatch를 방지합니다.')
+            }
+        }
+    }
+}
+
+project(':common-core') {
+    apply plugin: 'java-library'
+
+    dependencies {
+        api 'org.springframework.boot:spring-boot-starter-web'
+        api 'org.springframework.boot:spring-boot-starter-validation'
+        api 'org.springframework.boot:spring-boot-starter-security'
+        api 'org.springframework.boot:spring-boot-starter-data-jpa'
+        api 'io.jsonwebtoken:jjwt-api:0.13.0'
+        runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
+        runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
+        compileOnly 'org.springframework.boot:spring-boot-configuration-processor'
+        compileOnly 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
+
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+
+project(':shared-proto') {
+    apply plugin: 'java-library'
+    apply plugin: 'com.google.protobuf'
+
+    dependencies {
+        api "io.grpc:grpc-protobuf:${grpcJavaVersion}"
+        api "io.grpc:grpc-stub:${grpcJavaVersion}"
+        api "com.google.protobuf:protobuf-java:${protobufVersion}"
+    }
+
+    protobuf {
+        protoc {
+            artifact = "com.google.protobuf:protoc:${protobufVersion}"
+        }
+        plugins {
+            grpc {
+                artifact = "io.grpc:protoc-gen-grpc-java:${grpcJavaVersion}"
+            }
+        }
+        generateProtoTasks {
+            all()*.plugins {
+                grpc {
+                    option '@generated=omit'
+                }
+            }
+        }
+    }
+}
+
+project(':employee-service') {
+    apply plugin: 'org.springframework.boot'
+
+    dependencies {
+        implementation project(':common-core')
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'org.springframework.boot:spring-boot-starter-validation'
+        implementation 'org.springframework.boot:spring-boot-starter-security'
+        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+        runtimeOnly 'com.mysql:mysql-connector-j'
+        testRuntimeOnly 'com.h2database:h2'
+
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.springframework.security:spring-security-test'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+
+project(':approval-request-service') {
+    apply plugin: 'org.springframework.boot'
+
+    dependencies {
+        implementation project(':common-core')
+        implementation project(':shared-proto')
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'org.springframework.boot:spring-boot-starter-validation'
+        implementation 'org.springframework.boot:spring-boot-starter-security'
+        implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+        implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.springframework.security:spring-security-test'
+        testImplementation 'org.springframework.amqp:spring-rabbit-test'
+        testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+        testImplementation 'org.testcontainers:junit-jupiter'
+        testImplementation 'org.testcontainers:mongodb'
+        testImplementation 'org.testcontainers:mysql'
+        testImplementation 'org.testcontainers:rabbitmq'
+        testImplementation 'org.awaitility:awaitility:4.3.0'
+        testImplementation project(':employee-service')
+        testImplementation project(':approval-processing-service')
+        testImplementation project(':notification-service')
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+
+project(':approval-processing-service') {
+    apply plugin: 'org.springframework.boot'
+
+    dependencies {
+        implementation project(':common-core')
+        implementation project(':shared-proto')
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'org.springframework.boot:spring-boot-starter-validation'
+        implementation 'org.springframework.boot:spring-boot-starter-security'
+        implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.springframework.security:spring-security-test'
+        testImplementation 'org.springframework.amqp:spring-rabbit-test'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+
+project(':notification-service') {
+    apply plugin: 'org.springframework.boot'
+
+    dependencies {
+        implementation project(':common-core')
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'org.springframework.boot:spring-boot-starter-validation'
+        implementation 'org.springframework.boot:spring-boot-starter-security'
+        implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.springframework.security:spring-security-test'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}
+
+project(':api-gateway') {
+    apply plugin: 'org.springframework.boot'
+
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        implementation 'org.springframework.boot:spring-boot-starter-webflux'
+        implementation 'org.springframework.cloud:spring-cloud-starter-gateway-server-webflux'
+        implementation 'org.springframework.boot:spring-boot-starter-security'
+        implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
+        runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
+        runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
+
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+}

@@ -1,0 +1,9 @@
+rootProject.name = 'advanced-programming-lab'
+
+include 'common-core'
+include 'shared-proto'
+include 'employee-service'
+include 'approval-request-service'
+include 'approval-processing-service'
+include 'notification-service'
+include 'api-gateway'

@@ -1,0 +1,28 @@
+exception:
+  log-only-app-stack-trace: true
+
+security:
+  jwt:
+    secret: test-secret-key-should-be-long-enough-32bytes
+
+spring:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    dynamic: false
+    listener:
+      simple:
+        auto-startup: false
+      direct:
+        auto-startup: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+
+approval-request:
+  retry:
+    max-attempts: 2
+    backoff-millis: 1

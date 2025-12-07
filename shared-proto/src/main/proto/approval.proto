@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package erp.approval;
+
+option java_package = "erp.shared.proto.approval";
+option java_multiple_files = true;
+
+// 결재 요청/처리 gRPC 계약
+service Approval {
+  // Approval Request Service -> Approval Processing Service
+  rpc RequestApproval (ApprovalRequest) returns (ApprovalResponse);
+
+  // Approval Processing Service -> Approval Request Service
+  rpc ReturnApprovalResult (ApprovalResultRequest) returns (ApprovalResultResponse);
+}
+
+enum StepStatus {
+  STEP_STATUS_UNSPECIFIED = 0;
+  STEP_STATUS_PENDING = 1;
+  STEP_STATUS_APPROVED = 2;
+  STEP_STATUS_REJECTED = 3;
+}
+
+enum ApprovalResultStatus {
+  APPROVAL_RESULT_STATUS_UNSPECIFIED = 0;
+  APPROVAL_RESULT_APPROVED = 1;
+  APPROVAL_RESULT_REJECTED = 2;
+}
+
+message Step {
+  int32 step = 1;
+  int64 approverId = 2;
+  StepStatus status = 3;
+}
+
+message ApprovalRequest {
+  int64 requestId = 1;
+  int64 requesterId = 2;
+  string title = 3;
+  string content = 4;
+  repeated Step steps = 5;
+}
+
+message ApprovalResponse {
+  string status = 1; // ex) "received"
+}
+
+message ApprovalResultRequest {
+  int64 requestId = 1;
+  int32 step = 2;
+  int64 approverId = 3;
+  ApprovalResultStatus status = 4;
+}
+
+message ApprovalResultResponse {
+  string status = 1;
+}
